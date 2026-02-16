@@ -2,7 +2,7 @@ name: Insurance AutoTest
 
 on:
   schedule:
-    - cron: '0 * * * *' # Запуск каждый час
+    - cron: '0 * * * *' 
   workflow_dispatch:
     inputs:
       user_chat_id:
@@ -23,11 +23,9 @@ jobs:
       - name: Run Cypress Tests
         uses: cypress-io/github-action@v6
         with:
-          # Укажи здесь точный путь к твоему файлу страховки
           spec: cypress/e2e/monitoring/insurance.cy.js
           browser: chrome
         env:
-          # Используем те же секреты, что и в Railway
           CYPRESS_LOGIN_EMAIL: ${{ secrets.LOGIN_EMAIL }}
           CYPRESS_LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
         continue-on-error: true
@@ -59,4 +57,3 @@ jobs:
             **Offers Found:** ${{ env.OFFERS_COUNT }}
             **Mode:** ${{ github.event_name == 'schedule' && 'Hourly Testing ⏰' || 'Manual Testing 🔘' }}
             
-            🔗 [View Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

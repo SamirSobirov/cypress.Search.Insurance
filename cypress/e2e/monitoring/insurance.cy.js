@@ -40,10 +40,8 @@ describe('Insurance Product', () => {
       .click({ force: true });
 
     // 5. ВОЗРАСТ (Исправленная логика клика)
-    // Сначала кликаем по readonly полю, чтобы вызвать модалку/инпут
     cy.get('input#v-5').should('be.visible').click({ force: true });
 
-    // Вводим 18 в поле с плейсхолдером (добавил clear для надежности)
     cy.get('input[placeholder="Введите возраст"]')
       .should('be.visible')
       .clear()
@@ -58,10 +56,8 @@ describe('Insurance Product', () => {
     cy.wait('@insuranceSearch', { timeout: 60000 }).then((interception) => {
       const body = interception.response ? interception.response.body : null;
       
-      // Выводим в консоль браузера, чтобы понять структуру (нажми F12 в Cypress)
       console.log('ОТВЕТ СЕРВЕРА:', body);
 
-      // Безопасный поиск списка офферов
       let offersList = [];
       if (body) {
         if (Array.isArray(body)) {
@@ -73,12 +69,9 @@ describe('Insurance Product', () => {
         }
       }
       
-      // Гарантируем, что count — это число. Если список пуст, будет 0.
       const count = offersList.length || 0;
 
       cy.log(`DEBUG: Found ${count} insurance offers`);
-      
-      // Теперь toString() никогда не упадет, так как count минимум 0
       cy.writeFile('offers_count.txt', count.toString());
       
       if (count > 0) {
