@@ -1,7 +1,6 @@
 describe('Insurance Product', () => {
 
   before(() => {
-    // Чистим логи перед запуском
     cy.writeFile('api_status.txt', 'UNKNOWN');
     cy.writeFile('offers_count.txt', 'N/A');
   });
@@ -9,7 +8,7 @@ describe('Insurance Product', () => {
   it('Search Flow - Insurance with Smart Diagnostic', () => {
     cy.viewport(1280, 800);
     
-    // 1. ПЕРЕХВАТ API (RegExp для надежности)
+    // 1. ПЕРЕХВАТ API (
     cy.intercept({ method: 'POST', url: /\/insurance\/offers/ }).as('insuranceSearch');
 
     // 2. ЛОГИН 
@@ -31,7 +30,7 @@ describe('Insurance Product', () => {
     // 4. КУДА (Турция)
     cy.get('.p-multiselect-label-container').should('be.visible').click();
     cy.get('.p-multiselect-item').contains('Турция').click({ force: true });
-    cy.get('body').click(0,0); // Закрыть выпадашку
+    cy.get('body').click(0,0);
 
       // 4. ДАТЫ
     const dateDeparture = new Date();
@@ -54,12 +53,12 @@ describe('Insurance Product', () => {
     cy.get('input[placeholder="Введите возраст"]')
       .should('be.visible')
       .clear()
-      .type('25'); // Средний возраст для стабильности
+      .type('25');
 
     // 7. ПОИСК
     cy.get('button.form-btn').should('be.visible').click({ force: true });
 
-    // 8. УМНАЯ ПРОВЕРКА API
+    // 8 ПРОВЕРКА API
     cy.wait('@insuranceSearch', { timeout: 60000 }).then((interception) => {
       const statusCode = interception.response?.statusCode || 500;
       cy.writeFile('api_status.txt', statusCode.toString());
@@ -70,19 +69,15 @@ describe('Insurance Product', () => {
       }
     });
 
-    // Ожидание рендеринга карточек (в страховке они бывают тяжелые)
     cy.wait(10000);
 
     // 9. ПОДСЧЕТ РЕАЛЬНЫХ ОФФЕРОВ В UI
     cy.get('body').then(($body) => {
-      // Ищем элементы страховки (обычно это .offer-card или подобные)
-      // Добавляем селекторы, которые могут встречаться в страховке
       const cards = $body.find('[class*="offer"], .insurance-card, .p-card');
       let realOffers = 0;
 
       cards.each((index, el) => {
         const text = Cypress.$(el).text();
-        // Считаем только те, где есть валюта или кнопка выбора
         if (text.includes('UZS') || text.includes('сум') || text.includes('Выбрать') || text.includes('Купить')) {
           realOffers++;
         }
