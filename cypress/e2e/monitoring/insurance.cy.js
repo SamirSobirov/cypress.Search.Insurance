@@ -1,11 +1,18 @@
 describe('Insurance Product', () => {
-  it('Search Flow - Insurance', () => {
+
+  before(() => {
+    // Чистим логи перед запуском
+    cy.writeFile('api_status.txt', 'UNKNOWN');
+    cy.writeFile('offers_count.txt', 'N/A');
+  });
+
+  it('Search Flow - Insurance with Smart Diagnostic', () => {
     cy.viewport(1280, 800);
     
-    // Перехват API
-    cy.intercept('POST', '**/insurance/offers**').as('insuranceSearch');
+    // 1. ПЕРЕХВАТ API (RegExp для надежности)
+    cy.intercept({ method: 'POST', url: /\/insurance\/offers/ }).as('insuranceSearch');
 
-    // 1. ЛОГИН 
+    // 2. ЛОГИН 
     cy.visit('https://test.globaltravel.space/sign-in'); 
 
     cy.xpath("(//input[contains(@class,'input')])[1]").should('be.visible')
@@ -15,19 +22,18 @@ describe('Insurance Product', () => {
       .type(Cypress.env('LOGIN_PASSWORD'), { log: false }).type('{enter}');
 
     cy.url({ timeout: 20000 }).should('include', '/home');
-    
     cy.get('body').should('not.contain', 'Ошибка');
 
-    // 2. ПЕРЕХОД В СТРАХОВКУ
+    // 3. ПЕРЕХОД В СТРАХОВКУ
     cy.visit('https://test.globaltravel.space/insurance');
     cy.url().should('include', '/insurance');
 
-    // 3. КУДА (Турция)
+    // 4. КУДА (Турция)
     cy.get('.p-multiselect-label-container').should('be.visible').click();
     cy.get('.p-multiselect-item').contains('Турция').click({ force: true });
-    cy.get('body').click(0,0); 
+    cy.get('body').click(0,0); // Закрыть выпадашку
 
-    // 4. ДАТЫ
+      // 4. ДАТЫ
     const dateDeparture = new Date();
     dateDeparture.setDate(dateDeparture.getDate() + 2);
     const dateReturn = new Date();
@@ -43,46 +49,54 @@ describe('Insurance Product', () => {
       .contains(new RegExp(`^${dateReturn.getDate()}$`))
       .click({ force: true });
 
-    // 5. ВОЗРАСТ (Исправленная логика клика)
+    // 6. ВОЗРАСТ
     cy.get('input#v-5').should('be.visible').click({ force: true });
-
     cy.get('input[placeholder="Введите возраст"]')
       .should('be.visible')
       .clear()
-      .type('18');
+      .type('25'); // Средний возраст для стабильности
 
-    // 6. ПОИСК
-    cy.get('button.form-btn')
-      .should('be.visible')
-      .click({ force: true });
+    // 7. ПОИСК
+    cy.get('button.form-btn').should('be.visible').click({ force: true });
 
-   // 7. ПРОВЕРКА РЕЗУЛЬТАТА
+    // 8. УМНАЯ ПРОВЕРКА API
     cy.wait('@insuranceSearch', { timeout: 60000 }).then((interception) => {
-      const body = interception.response ? interception.response.body : null;
-      
-      console.log('ОТВЕТ СЕРВЕРА:', body);
+      const statusCode = interception.response?.statusCode || 500;
+      cy.writeFile('api_status.txt', statusCode.toString());
 
-      let offersList = [];
-      if (body) {
-        if (Array.isArray(body)) {
-          offersList = body;
-        } else if (body.offers && Array.isArray(body.offers)) {
-          offersList = body.offers;
-        } else if (body.data && Array.isArray(body.data)) {
-          offersList = body.data;
-        }
+      if (statusCode >= 400) {
+        cy.writeFile('offers_count.txt', 'ERROR');
+        throw new Error(`🆘 Ошибка сервера API Insurance: HTTP ${statusCode}`);
       }
-      
-      const count = offersList.length || 0;
+    });
 
-      cy.log(`DEBUG: Found ${count} insurance offers`);
-      cy.writeFile('offers_count.txt', count.toString());
-      
-      if (count > 0) {
-        cy.get('[class*="offer"]', { timeout: 20000 }).should('exist');
+    // Ожидание рендеринга карточек (в страховке они бывают тяжелые)
+    cy.wait(10000);
+
+    // 9. ПОДСЧЕТ РЕАЛЬНЫХ ОФФЕРОВ В UI
+    cy.get('body').then(($body) => {
+      // Ищем элементы страховки (обычно это .offer-card или подобные)
+      // Добавляем селекторы, которые могут встречаться в страховке
+      const cards = $body.find('[class*="offer"], .insurance-card, .p-card');
+      let realOffers = 0;
+
+      cards.each((index, el) => {
+        const text = Cypress.$(el).text();
+        // Считаем только те, где есть валюта или кнопка выбора
+        if (text.includes('UZS') || text.includes('сум') || text.includes('Выбрать') || text.includes('Купить')) {
+          realOffers++;
+        }
+      });
+
+      if (realOffers > 0) {
+        cy.writeFile('offers_count.txt', realOffers.toString());
+        cy.log(`✅ Найдено страховых планов: ${realOffers}`);
       } else {
-        cy.log('Список офферов пуст или имеет другую структуру');
+        cy.writeFile('offers_count.txt', '0');
+        cy.log('⚪ Страховых планов не найдено');
       }
     });
   });
 });
+
+
